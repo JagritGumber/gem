@@ -1,36 +1,64 @@
+mod ast;
 mod error;
 mod lexer;
+mod parser;
 mod token;
 
 use lexer::Lexer;
-use std::fs;
+use parser::Parser;
 use std::collections::HashMap;
+use std::fs;
 use std::path::{Path, PathBuf};
 
 fn main() {
-    println!("Gem lexer demo");
+    println!("Gem parser demo");
 
     // Auto-load entry: prefer scenes.registry.gem; fallback to example/main_scene.gem
     let chosen_path = resolve_entry_scene_path();
 
     match fs::read_to_string(&chosen_path) {
         Ok(content) => {
-            println!("Tokenizing: {}", chosen_path);
+            println!("\n=== Lexing: {} ===", chosen_path);
+            let is_logic_file =
+                chosen_path.contains("logic") || content.trim_start().starts_with("extend");
+
             let mut lexer = Lexer::new(content);
             match lexer.tokenize() {
                 Ok(tokens) => {
-                    println!("Tokens:");
-                    for (i, token) in tokens.iter().enumerate() {
-                        println!("  {}: {:?}", i, token);
+                    println!("[INFO] Lexed {} tokens", tokens.len());
+
+                    println!("\n=== Parsing ===");
+                    let mut parser = Parser::new(tokens);
+
+                    if is_logic_file {
+                        match parser.parse_logic() {
+                            Ok(ast) => {
+                                println!("[INFO] Parsed logic file successfully!");
+                                println!("\nAST:\n{:#?}", ast);
+                            }
+                            Err(e) => {
+                                eprintln!("[ERR] Parse error: {}", e);
+                            }
+                        }
+                    } else {
+                        match parser.parse_scene() {
+                            Ok(ast) => {
+                                println!("[INFO] Parsed scene file successfully!");
+                                println!("\nAST:\n{:#?}", ast);
+                            }
+                            Err(e) => {
+                                eprintln!("[ERR] Parse error: {}", e);
+                            }
+                        }
                     }
                 }
                 Err(e) => {
-                    println!("Lexer error: {}", e);
+                    eprintln!("[ERR] Lexer error: {}", e);
                 }
             }
         }
         Err(e) => {
-            println!("Error reading file {}: {}", chosen_path, e);
+            eprintln!("Error reading file {}: {}", chosen_path, e);
             eprintln!(
                 "\nNote: The tool auto-reads example/scenes.registry.gem if present,\nthen falls back to example/main_scene.gem."
             );

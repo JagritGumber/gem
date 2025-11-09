@@ -1,4 +1,4 @@
-MainMenu: RootGem {
+MainMenu: Gem {
     Title: LabelGem {
         text: "Welcome to Pyzza Game!"
         position: (200, 100)
