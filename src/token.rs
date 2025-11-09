@@ -1,18 +1,20 @@
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token {
-    Let,
-    Fun, // 'fun' keyword instead of 'fn'
-    If,
-    Else,
-    Takethis, // 'takethis' keyword for output
-    No,       // 'no' keyword (negation/else-like)
+    Ident(String), // identifier (parser will categorize by first char)
 
-    Ident(String),
     Integer(i64),
     Float(f64),
     String(String),
     Bool(bool),
 
+    // Keywords for logic
+    On,      // 'on' event handler keyword
+    Spawn,   // 'spawn' to create Gem instances
+    Extend,  // 'extend' header in logic files
+    Fn,      // 'fn' function declaration keyword
+    
+    Hash,               // '#'
+    DocComment(String), // collected from lines starting with '///'
     Eq,
     Semi,
     LParen,

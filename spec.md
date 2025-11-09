@@ -31,7 +31,7 @@ RootTree {
 This structure keeps scenes modular and organized, and allows each scene to define its own node hierarchy and logic. All file paths are explicit and use the same directive style as elsewhere in Pyzza.
 # Gem Scene Graph Syntax
  
-GEMM supports scene files that define the structure of a scene as a tree of Gems (formerly called nodes). A scene file contains a SINGLE top-level Gem (the root). Child Gems are nested inside their parent. To avoid an explicit `children` array, the parser uses a naming convention:
+Gem supports scene files that define the structure of a scene as a tree of Gems (formerly called nodes). A scene file contains a SINGLE top-level Gem (the root). Child Gems are neste;d inside their parent. To avoid an explicit `children` array, the parser uses a naming convention:
 
 - Gem names MUST start with an uppercase letter (e.g., `Player`, `Background`)
 - Property keys MUST start with a lowercase letter (e.g., `position`, `sprite`)
@@ -61,7 +61,7 @@ This allows you to compose scenes and link logic or configuration from external 
 ## Example Scene (Hierarchical)
 
 ```
-Main: RootGem {
+Main: Gem {
     Title: LabelGem {
         text: "Welcome to Pyzza Game!"
         position: (200, 100)
@@ -86,14 +86,14 @@ Main: RootGem {
 - The `link:` field is reserved; additional script-like directives must be composed inside the referenced file instead of stacking multiple links.
 
 ## Built-in Gems (Engine-provided)
-Engine provides these Gem types; users do NOT import them:
-- RootGem: base container for a scene
-- LabelGem: draw text
-- SpriteGem: draw an image
-- ContainerGem: group/layout
-- Rigidbody2DGem: 2D physics body
-- Collider2DGem: 2D collider shape
-- ButtonGem: clickable UI element
+All Gems implicitly inherit from the base `Gem`. Engine-provided types:
+- Gem — implicit base
+- LabelGem — draw text
+- SpriteGem — draw an image
+- ContainerGem — group/layout
+- Rigidbody2DGem — 2D physics body
+- Collider2DGem — 2D collider shape
+- ButtonGem — clickable UI element
 
 All Gems may implement lifecycle handlers:
 - on_ready() — called once when the Zed is added/initialized
@@ -119,10 +119,65 @@ Compact Gem blocks like:
 StatusLabel: LabelGem { text: "HP" position: (10, 10) }
 ```
 are equivalent to multiline forms; parser treats them identically.
-# Pyzza Game Language Specification
+
+# Logic & Scripting
+
+GEMM includes a minimal, event-driven logic syntax embedded in `.gem` files referenced via `link: #folder:file`.
+
+### Logic File Header
+Each logic file starts with an `extend` header declaring the Gem type it attaches to:
+
+```
+extend SpriteGem
+/// Player logic
+on_ready { speed = 200 }
+on_update(dt) { /* ... */ }
+```
+If omitted, `extend Gem` is assumed but explicit is recommended for clarity.
+
+## Event Handlers
+- `on_ready { ... }` — runs once when Gem is initialized
+- `on_update(dt) { ... }` — runs every frame; `dt` is delta time (seconds)
+- `on_destroy { ... }` — runs once when Gem is removed
+- Custom events: `on <name>(args?) { ... }`
+
+## Statements
+- Assignment: `x = 10`, `position = (x, y)`
+- Conditionals: `if cond { ... } else { ... }`
+- Calls: `play(#assets:jump.wav)`, `emit("hit")`
+- Spawning: `spawn Enemy { position: (100,200) }` (creates a child Gem of type `Enemy`)
+- Function declaration: `fn move(dx, dy) { position.x = position.x + dx }`
+
+## Expressions
+- Literals: numbers, strings, tuples `(x, y)`, booleans
+- Directive refs: `#assets:enemy.png` (resource), `#example:logic:ai` (script)
+- Property access: `self.x`, `parent.position.x`
+- Operators: `+ - * / && || ! == != < <= > >=`
+
+## Example Script (player_logic.gem)
+```
+/// Player logic
+on_ready {
+    speed = 200
+}
+
+on_update(dt) {
+    if key("left") { position.x = position.x - speed * dt }
+    if key("right") { position.x = position.x + speed * dt }
+    // custom function usage
+    if key("jump") { fn jump() { velocity.y = -300 } jump() }
+}
+```
+
+## Comments
+- Line comments: `// this is a comment`
+- Doc comments: `/// This documents the Gem below.` (retained for tooling; lexer emits a DocComment token)
+- Multiline comments: `/# any text \n more text #/` — may span lines; must close with `#/`.
+- `#` alone is reserved for directives (`#assets:player.png`); it never begins a comment.
+# Gem Game Language Specification
 
 ## Overview
-Pyzza is a simple, game-focused programming language designed to make 2D game development easy and fun. It uses a clear, entity-based syntax inspired by popular game engines.
+Gem is a simple, game-focused programming language designed to make 2D game development easy and fun. It uses a clear, entity-based syntax inspired by popular game engines.
 
 ---
 
@@ -152,8 +207,8 @@ assignment      ::= IDENTIFIER "=" expr ";"
 draw_stmt       ::= "draw" "." DRAW_COMMAND "(" [ arg_list ] ")" ";"
 audio_stmt      ::= "audio" "." AUDIO_COMMAND "(" [ arg_list ] ")" ";"
 
-if_stmt         ::= "if" "(" expr ")" block [ "else" block ]
-while_stmt      ::= "while" "(" expr ")" block
+if_stmt         ::= "if" expr block [ "else" block ]
+while_stmt      ::= "while" expr block
 
 expr_stmt       ::= expr ";"
 
