@@ -1,0 +1,23 @@
+# main_scene.gem - Hierarchical Scene
+
+MainScene: Gem {
+    Player: SpriteGem {
+        position: (100, 200)
+        sprite: #assets:player.png
+        link: #example:player_logic
+        Weapon: ContainerGem {
+            sprite: #assets:sword.png
+        }
+    }
+    Enemy: SpriteGem {
+        position: (300, 200)
+        sprite: #assets:enemy.png
+        link: #example:enemy_logic
+    }
+    Background: SpriteGem {
+        sprite: #assets:background.png
+    }
+    HUD: ContainerGem {
+        ScoreLabel: LabelGem { text: "Score: 0" position: (10, 10) }
+    }
+}

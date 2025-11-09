@@ -1,0 +1,16 @@
+GameOver: RootGem {
+    GameOverLabel: LabelGem {
+        text: "Game Over!"
+        position: (200, 150)
+    }
+    RetryButton: ButtonGem {
+        text: "Retry"
+        position: (200, 250)
+        link: #example:retry_button_logic
+    }
+    MenuButton: ButtonGem {
+        text: "Main Menu"
+        position: (200, 300)
+        link: #example:menu_button_logic
+    }
+}

@@ -1,0 +1,6 @@
+Scenes {
+    entry: main_menu
+    main_menu: #example:main_menu.gem
+    main_scene: #example:main_scene.gem
+    game_over: #example:game_over.gem
+}

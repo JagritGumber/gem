@@ -7,9 +7,9 @@ use std::fs;
 
 fn main() {
     println!("Hello, Pyzza!");
-    
-    // Test the lexer with the hello_world.pyzza example
-    let example_path = "example/hello_world.pyzza";
+
+    // Test the lexer with the hello_world.gem example
+    let example_path = "example/hello_world.gem";
     match fs::read_to_string(example_path) {
         Ok(content) => {
             println!("Tokenizing: {}", example_path);

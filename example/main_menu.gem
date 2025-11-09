@@ -1,0 +1,15 @@
+MainMenu: RootGem {
+    Title: LabelGem {
+        text: "Welcome to Pyzza Game!"
+        position: (200, 100)
+    }
+    StartButton: ButtonGem {
+        text: "Start Game"
+        position: (200, 200)
+        link: #example:start_button_logic
+    }
+    Footer: LabelGem {
+        text: "Press Enter to Start"
+        position: (200, 300)
+    }
+}
