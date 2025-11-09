@@ -36,6 +36,40 @@ impl Lexer {
         let ch = self.current_char();
 
         match ch {
+            '#' => {
+                // directive marker
+                self.advance();
+                return Ok(Some(Token::Hash));
+            }
+            '/' => {
+                match (self.peek_char(), self.peek_n(2)) {
+                    (Some('/'), Some('/')) => {
+                        // doc comment ///
+                        self.advance(); // first /
+                        self.advance(); // second /
+                        self.advance(); // third /
+                        let content = self.collect_line();
+                        return Ok(Some(Token::DocComment(content)));
+                    }
+                    (Some('/'), _) => {
+                        self.advance();
+                        self.advance();
+                        self.skip_rest_of_line();
+                        return self.next_token();
+                    }
+                    (Some('#'), _) => {
+                        // multiline comment /# ... #/
+                        self.advance(); // '/'
+                        self.advance(); // '#'
+                        self.skip_multiline_comment()?;
+                        return self.next_token();
+                    }
+                    _ => {
+                        self.advance();
+                        return Ok(Some(Token::Divide));
+                    }
+                }
+            }
             '(' => {
                 self.advance();
                 Ok(Some(Token::LParen))
@@ -79,10 +113,6 @@ impl Lexer {
             '*' => {
                 self.advance();
                 Ok(Some(Token::Multiply))
-            }
-            '/' => {
-                self.advance();
-                Ok(Some(Token::Divide))
             }
             '=' => {
                 if self.peek_char() == Some('=') {
@@ -184,6 +214,10 @@ impl Lexer {
 
     fn peek_char(&self) -> Option<char> {
         self.input.chars().nth(self.position + 1)
+    }
+
+    fn peek_n(&self, n: usize) -> Option<char> {
+        self.input.chars().nth(self.position + n)
     }
 
     fn advance(&mut self) {
@@ -298,18 +332,71 @@ impl Lexer {
             }
         }
 
-        let token = match value.as_str() {
-            "fun" => Token::Fun,
-            "if" => Token::If,
-            "else" => Token::Else,
-            "let" => Token::Let,
-            "takethis" => Token::Takethis,
-            "no" => Token::No,
-            "true" => Token::Bool(true),
-            "false" => Token::Bool(false),
-            _ => Token::Ident(value),
-        };
+        if value == "true" {
+            return Ok(Some(Token::Bool(true)));
+        }
+        if value == "false" {
+            return Ok(Some(Token::Bool(false)));
+        }
+
+        // logic keywords
+        match value.as_str() {
+            "on" => return Ok(Some(Token::On)),
+            "spawn" => return Ok(Some(Token::Spawn)),
+            "extend" => return Ok(Some(Token::Extend)),
+            "fn" => return Ok(Some(Token::Fn)),
+            _ => {}
+        }
+
+        let token = Token::Ident(value);
 
         Ok(Some(token))
+    }
+
+    fn skip_rest_of_line(&mut self) {
+        while self.position < self.input.len() {
+            let ch = self.current_char();
+            if ch == '\n' {
+                break;
+            }
+            self.advance();
+        }
+    }
+    fn collect_line(&mut self) -> String {
+        let mut value = String::new();
+        while self.position < self.input.len() {
+            let ch = self.current_char();
+            if ch == '\n' {
+                break;
+            }
+            value.push(ch);
+            self.advance();
+        }
+        value.trim().to_string()
+    }
+
+    fn skip_multiline_comment(&mut self) -> Result<(), LexError> {
+        while self.position < self.input.len() {
+            // detect end '#/' sequence
+            if self.current_char() == '#' && self.peek_char() == Some('/') {
+                self.advance(); // '#'
+                self.advance(); // '/'
+                return Ok(());
+            }
+            let ch = self.current_char();
+            if ch == '\n' {
+                self.position += 1;
+                self.line += 1;
+                self.column = 1;
+            } else {
+                self.position += 1;
+                self.column += 1;
+            }
+        }
+        Err(LexError {
+            message: "Unterminated multiline comment (/# ... #/)".to_string(),
+            line: self.line,
+            column: self.column,
+        })
     }
 }

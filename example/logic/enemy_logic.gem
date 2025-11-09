@@ -1,0 +1,10 @@
+extend SpriteGem
+
+/// Enemy logic
+fn on_ready {
+  speed = 80
+}
+
+fn on_update(dt) {
+  position.x = position.x - speed * dt
+}

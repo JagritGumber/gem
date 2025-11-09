@@ -4,7 +4,7 @@ MainScene: Gem {
     Player: SpriteGem {
         position: (100, 200)
         sprite: #assets:player.png
-        link: #example:player_logic
+        link: #example:logic:player_logic
         Weapon: ContainerGem {
             sprite: #assets:sword.png
         }
@@ -12,7 +12,7 @@ MainScene: Gem {
     Enemy: SpriteGem {
         position: (300, 200)
         sprite: #assets:enemy.png
-        link: #example:enemy_logic
+        link: #example:logic:enemy_logic
     }
     Background: SpriteGem {
         sprite: #assets:background.png

@@ -1,0 +1,11 @@
+extend SpriteGem
+
+/// Player logic
+fn on_ready {
+  speed = 200
+}
+
+fn on_update(dt) {
+  if key("left") { position.x = position.x - speed * dt }
+  if key("right") { position.x = position.x + speed * dt }
+}
