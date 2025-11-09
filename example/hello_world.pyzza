@@ -1,7 +1,0 @@
-fun main () {
-  takethis "Hello, world!"
-
-  if (2 > 5) {
-    no takethis "Not world"
-  }
-}
