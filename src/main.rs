@@ -1,19 +1,24 @@
 mod ast;
+mod display;
 mod error;
 mod lexer;
 mod parser;
+mod renderer;
 mod token;
 
+use display::GemDisplay;
 use lexer::Lexer;
 use parser::Parser;
+use renderer::GemRenderer;
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
+use winit::event::{Event, WindowEvent};
+use winit::event_loop::{ControlFlow, EventLoop};
 
 fn main() {
-    println!("Gem parser demo");
+    println!("Gem Engine - Parser & Renderer Demo");
 
-    // Auto-load entry: prefer scenes.registry.gem; fallback to example/main_scene.gem
     let chosen_path = resolve_entry_scene_path();
 
     match fs::read_to_string(&chosen_path) {
@@ -35,6 +40,9 @@ fn main() {
                             Ok(ast) => {
                                 println!("[INFO] Parsed logic file successfully!");
                                 println!("\nAST:\n{:#?}", ast);
+                                println!(
+                                    "\n[INFO] Logic files don't launch renderer - parse only."
+                                );
                             }
                             Err(e) => {
                                 eprintln!("[ERR] Parse error: {}", e);
@@ -44,7 +52,10 @@ fn main() {
                         match parser.parse_scene() {
                             Ok(ast) => {
                                 println!("[INFO] Parsed scene file successfully!");
-                                println!("\nAST:\n{:#?}", ast);
+                                println!("\n[INFO] Launching renderer...");
+
+                                // Launch the renderer with the parsed scene
+                                run_renderer(ast);
                             }
                             Err(e) => {
                                 eprintln!("[ERR] Parse error: {}", e);
@@ -66,9 +77,55 @@ fn main() {
     }
 }
 
+fn run_renderer(scene_ast: ast::GemFile) {
+    println!("\n=== Initializing Renderer ===");
+
+    let event_loop = EventLoop::new().expect("Failed to create event loop");
+    let display = GemDisplay::new(&event_loop, 800, 600, "Gem Engine - Scene Viewer");
+
+    let renderer = GemRenderer::new(&display);
+
+    println!(
+        "[INFO] Scene root: {} : {}",
+        scene_ast.root.name, scene_ast.root.gem_type
+    );
+    println!(
+        "[INFO] Rendering scene with {} children",
+        scene_ast.root.children.len()
+    );
+
+    let _ = event_loop.run(move |event, elwt| {
+        elwt.set_control_flow(ControlFlow::Poll);
+
+        match event {
+            Event::WindowEvent { event, .. } => match event {
+                WindowEvent::CloseRequested => {
+                    println!("[INFO] Window close requested");
+                    elwt.exit();
+                }
+                WindowEvent::Resized(size) => {
+                    display.resize(size.width, size.height);
+                    renderer.set_viewport(size.width, size.height);
+                }
+                WindowEvent::RedrawRequested => {
+                    renderer.begin_frame();
+
+                    renderer.render_quad(0.0, 0.0, 0.5, 0.5, [0.2, 0.8, 0.4, 1.0]);
+
+                    display.swap_buffers();
+                }
+                _ => {}
+            },
+            Event::AboutToWait => {
+                display.window.request_redraw();
+            }
+            _ => {}
+        }
+    });
+}
+
 fn resolve_entry_scene_path() -> String {
     let registry_path = "example/scenes.registry.gem";
-    // If registry exists, try to resolve entry scene path from it
     if Path::new(registry_path).exists() {
         match fs::read_to_string(registry_path) {
             Ok(registry) => {
@@ -132,7 +189,6 @@ fn parse_registry_for_entry(contents: &str) -> Option<String> {
 }
 
 fn directive_to_path(directive: &str) -> String {
-    // Convert e.g., "example:main_scene.gem" or "example:logic:player_logic" to path
     let parts: Vec<&str> = directive.split(':').collect();
     let mut pb = PathBuf::new();
     for (i, part) in parts.iter().enumerate() {
