@@ -1,18 +1,21 @@
 mod ast;
+mod codegen;
 mod display;
 mod error;
-mod gem; // runtime shim (experimental)
-mod ir; // compile-time IR for Gem/Node
+mod gem;
+mod ir;
 mod lexer;
-mod object; // runtime shim (experimental)
+mod object;
 mod parser;
+mod pipeline;
+mod property_type;
 mod renderer;
 mod token;
-mod value; // shared Value definitions (compiler-facing too)
+mod transformer;
+mod value;
 
 use display::GemDisplay;
-use lexer::Lexer;
-use parser::Parser;
+use pipeline::compile_scene;
 use renderer::GemRenderer;
 use std::collections::HashMap;
 use std::fs;
@@ -31,44 +34,40 @@ fn main() {
             let is_logic_file =
                 chosen_path.contains("logic") || content.trim_start().starts_with("extend");
 
-            let mut lexer = Lexer::new(content);
-            match lexer.tokenize() {
-                Ok(tokens) => {
-                    println!("[INFO] Lexed {} tokens", tokens.len());
-
-                    println!("\n=== Parsing ===");
-                    let mut parser = Parser::new(tokens);
-
-                    if is_logic_file {
-                        match parser.parse_logic() {
-                            Ok(ast) => {
-                                println!("[INFO] Parsed logic file successfully!");
-                                println!("\nAST:\n{:#?}", ast);
-                                println!(
-                                    "\n[INFO] Logic files don't launch renderer - parse only."
-                                );
-                            }
-                            Err(e) => {
-                                eprintln!("[ERR] Parse error: {}", e);
-                            }
-                        }
-                    } else {
-                        match parser.parse_scene() {
-                            Ok(ast) => {
-                                println!("[INFO] Parsed scene file successfully!");
-                                println!("\n[INFO] Launching renderer...");
-
-                                // Launch the renderer with the parsed scene
-                                run_renderer(ast);
-                            }
-                            Err(e) => {
-                                eprintln!("[ERR] Parse error: {}", e);
-                            }
-                        }
+            if is_logic_file {
+                match pipeline::lex_source(&content).and_then(pipeline::parse_logic) {
+                    Ok(ast) => {
+                        println!("[INFO] Parsed logic file successfully!");
+                        println!("\nAST:\n{:#?}", ast);
+                        println!("\n[INFO] Logic files don't launch renderer - parse only.");
                     }
+                    Err(e) => eprintln!("[ERR] Logic parse error: {}", e),
                 }
-                Err(e) => {
-                    eprintln!("[ERR] Lexer error: {}", e);
+            } else {
+                // Determine root directory (folder containing scenes.registry.gem if present), then write to <root>/gen/<relative>.rs
+                let root_dir = find_root_dir().unwrap_or_else(|| {
+                    Path::new(&chosen_path)
+                        .parent()
+                        .map(|p| p.to_path_buf())
+                        .unwrap_or_else(|| PathBuf::from("."))
+                });
+                let relative = Path::new(&chosen_path)
+                    .strip_prefix(&root_dir)
+                    .unwrap_or_else(|_| Path::new(&chosen_path))
+                    .to_path_buf();
+                let mut out_path = root_dir.join(".gen").join(&relative);
+                out_path.set_extension("rs");
+                if let Some(parent) = out_path.parent() {
+                    std::fs::create_dir_all(parent).ok();
+                }
+
+                match compile_scene(&content, &out_path.to_string_lossy()) {
+                    Ok(result) => {
+                        // Optionally launch renderer for preview
+                        println!("\n[INFO] Launching renderer for preview...");
+                        run_renderer(result.ast);
+                    }
+                    Err(e) => eprintln!("[ERR] Compile error: {}", e),
                 }
             }
         }
@@ -81,13 +80,96 @@ fn main() {
     }
 }
 
+// Return the directory containing scenes.registry.gem if it exists.
+fn find_root_dir() -> Option<PathBuf> {
+    let registry_path = Path::new("example/scenes.registry.gem");
+    if registry_path.exists() {
+        return registry_path.parent().map(|p| p.to_path_buf());
+    }
+    None
+}
+
 fn run_renderer(scene_ast: ast::GemFile) {
     println!("\n=== Initializing Renderer ===");
 
     let event_loop = EventLoop::new().expect("Failed to create event loop");
     let display = GemDisplay::new(&event_loop, 800, 600, "Gem Engine - Scene Viewer");
 
-    let renderer = GemRenderer::new(&display);
+    let mut renderer = GemRenderer::new(&display);
+
+    // Simple draw command representing a quad to render
+    #[derive(Clone, Copy, Debug)]
+    struct DrawCmd {
+        x: f32, // pixels
+        y: f32, // pixels
+        w: f32, // pixels
+        h: f32, // pixels
+        color: [f32; 4],
+    }
+
+    // Extract draw commands from AST nodes (placeholder visuals)
+    fn gather_draws(decl: &ast::GemDecl, out: &mut Vec<DrawCmd>) {
+        // Defaults
+        let mut pos: (f32, f32) = (100.0, 100.0);
+        let mut size: (f32, f32) = (160.0, 48.0);
+        let mut color: [f32; 4] = [0.6, 0.6, 0.6, 1.0];
+
+        // Basic property parsing for position
+        for p in &decl.properties {
+            if p.key == "position" {
+                if let ast::Value::Tuple(vals) = &p.value {
+                    if vals.len() >= 2 {
+                        let x = match &vals[0] {
+                            ast::Value::Integer(i) => *i as f32,
+                            ast::Value::Number(n) => *n as f32,
+                            _ => 0.0,
+                        };
+                        let y = match &vals[1] {
+                            ast::Value::Integer(i) => *i as f32,
+                            ast::Value::Number(n) => *n as f32,
+                            _ => 0.0,
+                        };
+                        pos = (x, y);
+                    }
+                }
+            }
+        }
+
+        // Color/size by gem type (temporary placeholders)
+        match decl.gem_type.as_str() {
+            "LabelGem" => {
+                color = [0.7, 0.2, 0.8, 1.0];
+                size = (260.0, 40.0);
+            }
+            "ButtonGem" => {
+                color = [0.2, 0.7, 0.3, 1.0];
+                size = (200.0, 56.0);
+            }
+            _ => { /* keep defaults */ }
+        }
+
+        if decl.gem_type != "Gem" {
+            out.push(DrawCmd {
+                x: pos.0,
+                y: pos.1,
+                w: size.0,
+                h: size.1,
+                color,
+            });
+        }
+
+        for c in &decl.children {
+            gather_draws(c, out);
+        }
+    }
+
+    // Precompute draw list from AST (static for now)
+    let mut draws: Vec<DrawCmd> = Vec::new();
+    gather_draws(&scene_ast.root, &mut draws);
+
+    // Track framebuffer size for pixel-space to NDC conversion
+    let mut fb_w: f32 = 800.0;
+    let mut fb_h: f32 = 600.0;
 
     println!(
         "[INFO] Scene root: {} : {}",
@@ -97,7 +179,15 @@ fn run_renderer(scene_ast: ast::GemFile) {
         "[INFO] Rendering scene with {} children",
         scene_ast.root.children.len()
     );
+    println!("[INFO] Draw commands: {} quads", draws.len());
+    for (i, d) in draws.iter().enumerate() {
+        println!(
+            "  [{}] pos=({:.1},{:.1}) size=({:.1}x{:.1}) color={:?}",
+            i, d.x, d.y, d.w, d.h, d.color
+        );
+    }
 
+    #[allow(deprecated)]
     let _ = event_loop.run(move |event, elwt| {
         elwt.set_control_flow(ControlFlow::Poll);
 
@@ -110,11 +200,28 @@ fn run_renderer(scene_ast: ast::GemFile) {
                 WindowEvent::Resized(size) => {
                     display.resize(size.width, size.height);
                     renderer.set_viewport(size.width, size.height);
+                    fb_w = size.width as f32;
+                    fb_h = size.height as f32;
                 }
                 WindowEvent::RedrawRequested => {
                     renderer.begin_frame();
 
-                    renderer.render_quad(0.0, 0.0, 0.5, 0.5, [0.6, 0.2, 0.4, 1.0]);
+                    for d in &draws {
+                        // Convert pixel coordinates to NDC (-1 to 1)
+                        // Center position in pixels
+                        let cx_px = d.x + d.w * 0.5;
+                        let cy_px = d.y + d.h * 0.5;
+
+                        // Convert to NDC: map [0, fb_w] to [-1, 1] and [0, fb_h] to [1, -1] (Y inverted)
+                        let cx_ndc = (cx_px / fb_w) * 2.0 - 1.0;
+                        let cy_ndc = -((cy_px / fb_h) * 2.0 - 1.0);
+
+                        // Convert size to NDC scale
+                        let w_ndc = d.w / fb_w * 2.0;
+                        let h_ndc = d.h / fb_h * 2.0;
+
+                        renderer.render_quad(cx_ndc, cy_ndc, w_ndc, h_ndc, d.color);
+                    }
 
                     display.swap_buffers();
                 }
