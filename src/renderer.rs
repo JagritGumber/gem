@@ -266,10 +266,10 @@ impl GemRenderer {
             #[rustfmt::skip]
             let vertices: [f32; 32] = [
                 // positions   // texcoords  // colors
-                -0.5, -0.5,    0.0, 0.0,     color[0], color[1], color[2], color[3],
-                 0.5, -0.5,    1.0, 0.0,     color[0], color[1], color[2], color[3],
-                 0.5,  0.5,    1.0, 1.0,     color[0], color[1], color[2], color[3],
                 -0.5,  0.5,    0.0, 1.0,     color[0], color[1], color[2], color[3],
+                 0.5,  0.5,    1.0, 1.0,     color[0], color[1], color[2], color[3],
+                 0.5, -0.5,    1.0, 0.0,     color[0], color[1], color[2], color[3],
+                -0.5, -0.5,    0.0, 0.0,     color[0], color[1], color[2], color[3],
             ];
 
             gl::BindBuffer(gl::ARRAY_BUFFER, self.vbo);
