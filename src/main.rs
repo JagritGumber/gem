@@ -1,10 +1,14 @@
 mod ast;
 mod display;
 mod error;
+mod gem; // runtime shim (experimental)
+mod ir; // compile-time IR for Gem/Node
 mod lexer;
+mod object; // runtime shim (experimental)
 mod parser;
 mod renderer;
 mod token;
+mod value; // shared Value definitions (compiler-facing too)
 
 use display::GemDisplay;
 use lexer::Lexer;
@@ -110,7 +114,7 @@ fn run_renderer(scene_ast: ast::GemFile) {
                 WindowEvent::RedrawRequested => {
                     renderer.begin_frame();
 
-                    renderer.render_quad(0.0, 0.0, 0.5, 0.5, [0.2, 0.8, 0.4, 1.0]);
+                    renderer.render_quad(0.0, 0.0, 0.5, 0.5, [0.6, 0.2, 0.4, 1.0]);
 
                     display.swap_buffers();
                 }
