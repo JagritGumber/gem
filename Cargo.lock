@@ -344,6 +344,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "aa9a19cbb55df58761df49b23516a86d432839add4af60fc256da840f66ed35b"
 
 [[package]]
+name = "gem"
+version = "0.1.0"
+dependencies = [
+ "gl",
+ "glutin",
+ "glutin-winit",
+ "raw-window-handle",
+ "winit",
+]
+
+[[package]]
 name = "gethostname"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -971,17 +982,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5ee95bc4ef87b8d5ba32e8b7714ccc834865276eab0aed5c9958d00ec45f49e8"
 dependencies = [
  "unicode-ident",
-]
-
-[[package]]
-name = "pyzza"
-version = "0.1.0"
-dependencies = [
- "gl",
- "glutin",
- "glutin-winit",
- "raw-window-handle",
- "winit",
 ]
 
 [[package]]

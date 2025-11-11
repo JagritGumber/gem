@@ -2,6 +2,7 @@
 //! These structures are compile-time only: no runtime mutation, no Arc/RwLock.
 //! They model classes (Object/Gem), nodes, and scenes similar to Godot's Node tree.
 
+use crate::property_type::PropertyType;
 use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
@@ -35,11 +36,17 @@ pub struct ClassDecl {
 pub struct NodeId(pub u32);
 
 #[derive(Debug, Clone)]
+pub struct TypedProperty {
+    pub value: String, // literal value
+    pub prop_type: PropertyType,
+}
+
+#[derive(Debug, Clone)]
 pub struct NodeIR {
     pub id: NodeId,
     pub name: String,
     pub class_name: String, // e.g. "Gem" or future specialized classes
-    pub properties: HashMap<String, String>, // literal values
+    pub properties: HashMap<String, TypedProperty>, // typed properties
     pub parent: Option<NodeId>,
     pub children: Vec<NodeId>,
 }
@@ -99,8 +106,34 @@ impl SceneIR {
     }
 
     pub fn set_property(&mut self, node: NodeId, key: impl Into<String>, value: impl Into<String>) {
+        let value_str = value.into();
+        let prop_type = PropertyType::infer(&value_str);
         if let Some(n) = self.nodes.get_mut(&node) {
-            n.properties.insert(key.into(), value.into());
+            n.properties.insert(
+                key.into(),
+                TypedProperty {
+                    value: value_str,
+                    prop_type,
+                },
+            );
+        }
+    }
+
+    pub fn set_typed_property(
+        &mut self,
+        node: NodeId,
+        key: impl Into<String>,
+        value: impl Into<String>,
+        prop_type: PropertyType,
+    ) {
+        if let Some(n) = self.nodes.get_mut(&node) {
+            n.properties.insert(
+                key.into(),
+                TypedProperty {
+                    value: value.into(),
+                    prop_type,
+                },
+            );
         }
     }
 

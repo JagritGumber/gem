@@ -1,6 +1,6 @@
 MainMenu: Gem {
     Title: LabelGem {
-        text: "Welcome to Pyzza Game!"
+        text: "Welcome to Gem Game!"
         position: (200, 100)
     }
     StartButton: ButtonGem {
